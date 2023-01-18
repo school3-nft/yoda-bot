@@ -37,7 +37,6 @@ const getTokenById = async (token_id) => {
     const docRef = db.collection("tokens").doc(token_id);
     return await docRef.get().then((doc) => {
         if ( doc.exists ) {
-            // console.log({ token_id, ... doc.data() });
             return { token_id, ... doc.data() };
         } else {
             console.log("No such token");
@@ -85,9 +84,6 @@ const handleEndAuction = async (auction) => {
 
   const token = await getTokenById( auction.token_id );
   const seller = await getUserbyId ( token.uid );
-  console.log("TEST")
-  console.log(auction);
-  console.log("TEST2")
   const buyer = await getUserbyId( auction.currentBidderUid )
 
   const seller_seed = seller.seed;
