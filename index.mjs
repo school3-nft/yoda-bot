@@ -34,11 +34,17 @@ const fetchApi = (url, method = "GET", body) => {
 
 
 const getTokenById = async (token_id) => {
-    const docSnap = db.collection("tokens").doc(token_id).get();
-    if (docSnap.exists()) {
-      return { token_id, ...docSnap.data() };
-    }
-    throw Error("No Token with That Id");
+    const docRef = db.collection("tokens").doc(token_id);
+    return await docRef.get().then((doc) => {
+        if ( doc.exists ) {
+            // console.log({ token_id, ... doc.data() });
+            return { token_id, ... doc.data() };
+        } else {
+            console.log("No such token");
+        }
+    }).catch((error) => {
+        console.log("Error getting: ", error);
+    });
   };
 
 const fetchTransferNFT = async (
@@ -62,22 +68,36 @@ const fetchTransferNFT = async (
 };
 
 const getUserbyId = async ( uid ) => {
-    const docSnap = db.collection("users").doc(uid).get();
-    if ( docSnap.exists()) return { uid, ...(docSnap.data() )};
-    throw Error("No User with That Id");
-}
+    const docRef = db.collection("users").doc(uid);
+    return await docRef.get().then((doc) => {
+        if ( doc.exists ) {
+            return { uid, ...doc.data()}
+        } else {
+            console.log("No such user");
+        }
+    }).catch((error) => {
+        console.log("Error getting: ", error);
+    });
+};
 
 const handleEndAuction = async (auction) => {
   const batch = db.batch();
 
-  const seller_seed = getUserbyId(getTokenById(auction.token_id).uid).seed;
-  const seller_sequence = getUserbyId(getTokenById(auction.token_id).uid).sequence;
-  const buyer_seed = getUserbyId(auction.currentBidderUid).seed;
-  const buyer_sequence = getUserbyId(auction.currentBidderUid).sequence;
-  const nftoken_id = auction.token_id;
+  const token = await getTokenById( auction.token_id );
+  const seller = await getUserbyId ( token.uid );
+  console.log("TEST")
+  console.log(auction);
+  console.log("TEST2")
+  const buyer = await getUserbyId( auction.currentBidderUid )
+
+  const seller_seed = seller.seed;
+  const seller_sequence = seller.sequence;
+  const buyer_seed = buyer.seed;
+  const buyer_sequence = buyer.sequence;
+  const nftoken_id = token.nftoken_id;
   const amount = auction.currentBid;
 
-  fetchTransferNFT(
+  await fetchTransferNFT(
     seller_seed,
     seller_sequence,
     buyer_seed,
@@ -119,7 +139,7 @@ async function checkAuctions() {
   const endedAuctions = await getEndedAuctions();
   if (endedAuctions.length !== 0) {
     for (let auction of endedAuctions) {
-      handleEndAuction(auction);
+      await handleEndAuction(auction);
     }
   } else {
     console.log("Nothing to do :(");
