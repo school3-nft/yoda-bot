@@ -1,7 +1,12 @@
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 
-import serviceAccount from "./.private/serviceAccountKey.json" assert { type: "json" };
+import serviceAccount from "./serviceAccountKey.json" assert { type: "json" };
+
+const API_URL = process.env.API_URL
+  ? process.env.API_URL
+  : "http://localhost:8000";
+
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
@@ -9,16 +14,78 @@ admin.initializeApp({
 
 const db = getFirestore();
 
-const getTokenById = async (token_id) => {
-  const docSnap = db.collection("tokens").doc(token_id).get();
-  if (docSnap.exists()) {
-    return { token_id, ...docSnap.data() };
-  }
-  throw Error("No Token with That Id");
+const fetchApi = (url, method = "GET", body) => {
+    console.log(JSON.stringify(body));
+    return fetch(url, {
+      method,
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(response.statusText);
+        }
+        return response.json();
+      });
 };
+
+
+const getTokenById = async (token_id) => {
+    const docSnap = db.collection("tokens").doc(token_id).get();
+    if (docSnap.exists()) {
+      return { token_id, ...docSnap.data() };
+    }
+    throw Error("No Token with That Id");
+  };
+
+const fetchTransferNFT = async (
+    seller_seed,
+    seller_sequence,
+    buyer_seed,
+    buyer_sequence,
+    nftoken_id,
+    amount
+    ) => {
+    const data = await fetchApi(`${API_URL}/transfer-nft`, "POST", {
+        seller_seed,
+        seller_sequence,
+        buyer_seed,
+        buyer_sequence,
+        nftoken_id,
+        amount,
+    });
+    return { data, returnCode: "200" }
+
+};
+
+const getUserbyId = async ( uid ) => {
+    const docSnap = db.collection("users").doc(uid).get();
+    if ( docSnap.exists()) return { uid, ...(docSnap.data() )};
+    throw Error("No User with That Id");
+}
 
 const handleEndAuction = async (auction) => {
   const batch = db.batch();
+
+  const seller_seed = getUserbyId(getTokenById(auction.token_id).uid).seed;
+  const seller_sequence = getUserbyId(getTokenById(auction.token_id).uid).sequence;
+  const buyer_seed = getUserbyId(auction.currentBidderUid).seed;
+  const buyer_sequence = getUserbyId(auction.currentBidderUid).sequence;
+  const nftoken_id = auction.token_id;
+  const amount = auction.currentBid;
+
+  fetchTransferNFT(
+    seller_seed,
+    seller_sequence,
+    buyer_seed,
+    buyer_sequence,
+    nftoken_id,
+    amount,
+  );
+
 
   batch.update(db.collection("tokens").doc(auction.token_id), {
     uid: auction.currentBidderUid,
@@ -58,7 +125,7 @@ async function checkAuctions() {
     console.log("Nothing to do :(");
   }
 
-  setTimeout(checkAuctions, 50000);
+  setTimeout(checkAuctions, 5000);
 }
 
-setTimeout(checkAuctions, 50000);
+setTimeout(checkAuctions, 1000);
