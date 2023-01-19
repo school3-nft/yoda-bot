@@ -7,7 +7,6 @@ const API_URL = process.env.API_URL
   ? process.env.API_URL
   : "http://localhost:8000";
 
-
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
@@ -15,76 +14,93 @@ admin.initializeApp({
 const db = getFirestore();
 
 const fetchApi = (url, method = "GET", body) => {
-    console.log(JSON.stringify(body));
-    return fetch(url, {
-      method,
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(response.statusText);
-        }
-        return response.json();
-      });
+  console.log(JSON.stringify(body));
+  return fetch(url, {
+    method,
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  }).then((response) => {
+    if (!response.ok) {
+      throw new Error(response.statusText);
+    }
+    return response.json();
+  });
 };
 
+const getUserById = async (uid) => {
+  const docRef = db.collection("users").doc(uid);
+  return await docRef
+    .get()
+    .then((doc) => {
+      if (doc.exists) {
+        return { uid, ...doc.data() };
+      } else {
+        console.log("No such user");
+      }
+    })
+    .catch((error) => {
+      console.log("Error getting: ", error);
+    });
+};
+
+export const incrementSequence = async (uid) => {
+  console.log(uid);
+  const user = await getUserById(uid);
+  const docRef = db
+    .collection("users")
+    .doc(uid)
+    .set(
+      {
+        sequence: user.sequence + 1,
+      },
+      { merge: true }
+    );
+};
 
 const getTokenById = async (token_id) => {
-    const docRef = db.collection("tokens").doc(token_id);
-    return await docRef.get().then((doc) => {
-        if ( doc.exists ) {
-            return { token_id, ... doc.data() };
-        } else {
-            console.log("No such token");
-        }
-    }).catch((error) => {
-        console.log("Error getting: ", error);
+  const docRef = db.collection("tokens").doc(token_id);
+  return await docRef
+    .get()
+    .then((doc) => {
+      if (doc.exists) {
+        return { token_id, ...doc.data() };
+      } else {
+        console.log("No such token");
+      }
+    })
+    .catch((error) => {
+      console.log("Error getting: ", error);
     });
-  };
+};
 
 const fetchTransferNFT = async (
+  seller_seed,
+  seller_sequence,
+  buyer_seed,
+  buyer_sequence,
+  nftoken_id,
+  amount
+) => {
+  const data = await fetchApi(`${API_URL}/transfer-nft`, "POST", {
     seller_seed,
     seller_sequence,
     buyer_seed,
     buyer_sequence,
     nftoken_id,
-    amount
-    ) => {
-    const data = await fetchApi(`${API_URL}/transfer-nft`, "POST", {
-        seller_seed,
-        seller_sequence,
-        buyer_seed,
-        buyer_sequence,
-        nftoken_id,
-        amount,
-    });
-    return { data, returnCode: "200" }
-
-};
-
-const getUserbyId = async ( uid ) => {
-    const docRef = db.collection("users").doc(uid);
-    return await docRef.get().then((doc) => {
-        if ( doc.exists ) {
-            return { uid, ...doc.data()}
-        } else {
-            console.log("No such user");
-        }
-    }).catch((error) => {
-        console.log("Error getting: ", error);
-    });
+    amount,
+  });
+  return { data, returnCode: "200" };
 };
 
 const handleEndAuction = async (auction) => {
   const batch = db.batch();
 
-  const token = await getTokenById( auction.token_id );
-  const seller = await getUserbyId ( token.uid );
-  const buyer = await getUserbyId( auction.currentBidderUid )
+  const token = await getTokenById(auction.token_id);
+  const seller = await getUserById(token.uid);
+  const buyer = await getUserById(auction.currentBidderUid);
 
   const seller_seed = seller.seed;
   const seller_sequence = seller.sequence;
@@ -99,9 +115,10 @@ const handleEndAuction = async (auction) => {
     buyer_seed,
     buyer_sequence,
     nftoken_id,
-    amount,
+    amount
   );
 
+  await incrementSequence(seller.uid);
 
   batch.update(db.collection("tokens").doc(auction.token_id), {
     uid: auction.currentBidderUid,
