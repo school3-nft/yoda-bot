@@ -5,7 +5,7 @@ import serviceAccount from "./serviceAccountKey.json" assert { type: "json" };
 
 const API_URL = process.env.API_URL
   ? process.env.API_URL
-  : "http://localhost:8000";
+  : "https://api.school3.kklassa.dev";
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
