@@ -109,16 +109,17 @@ const handleEndAuction = async (auction) => {
   const nftoken_id = token.nftoken_id;
   const amount = auction.currentBid;
 
-  await fetchTransferNFT(
-    seller_seed,
-    seller_sequence,
-    buyer_seed,
-    buyer_sequence,
-    nftoken_id,
-    amount
-  );
-
-  await incrementSequence(seller.uid);
+  try {
+    await fetchTransferNFT(
+      seller_seed,
+      seller_sequence,
+      buyer_seed,
+      buyer_sequence,
+      nftoken_id,
+      amount
+    );
+    await incrementSequence(seller.uid);
+  } catch (err) {}
 
   batch.update(db.collection("tokens").doc(auction.token_id), {
     uid: auction.currentBidderUid,
