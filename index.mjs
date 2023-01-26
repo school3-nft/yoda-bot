@@ -159,7 +159,7 @@ async function checkAuctions() {
     console.log("Nothing to do :(");
   }
 
-  setTimeout(checkAuctions, 300000);
+  setTimeout(checkAuctions, 1000);
 }
 
-setTimeout(checkAuctions, 300000);
+setTimeout(checkAuctions, 1000);
